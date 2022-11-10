@@ -60,7 +60,7 @@ def evaluate(model, data_loader, forward_fn, metrics_fn, model_type, tokenizer, 
             pbar.set_description("TESTING... ")
             # pbar.set_description("TEST LOSS:{:.4f} {}".format(total_loss/(i+1), metrics_to_string(metrics)))
     
-    metrics = metrics_fn(list_hyp, list_label)        
+    metrics = metrics_fn(list_hyp, list_label, is_train=False)        
     if is_test:
         return total_loss/(i+1), metrics, list_hyp, list_label
     else:

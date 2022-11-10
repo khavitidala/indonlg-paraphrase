@@ -1,9 +1,11 @@
 import itertools
+import statistics
 from sklearn.metrics import accuracy_score, f1_score, recall_score, precision_score
 from .conlleval import conll_evaluation
 import datasets
 from nltk import word_tokenize
 
+bertscore = datasets.load_metric('bertscore')
 bleu = datasets.load_metric('bleu')
 rouge = datasets.load_metric('rouge')
 sacrebleu = datasets.load_metric('sacrebleu')
@@ -102,15 +104,28 @@ def news_categorization_metrics_fn(list_hyp, list_label):
     metrics["PRE"] = precision_score(list_label, list_hyp, average='macro')
     return metrics
 
-def generation_metrics_fn(list_hyp, list_label):
+def generation_metrics_fn(list_hyp, list_label, is_train=True):
     # hyp and label are both list of string
     list_hyp_bleu = list(map(lambda x: word_tokenize(x), list_hyp))
     list_label_bleu = list(map(lambda x: [word_tokenize(x)], list_label))
     list_label_sacrebleu = list(map(lambda x: [x], list_label))
     
     metrics = {}
-    metrics["BLEU"] = bleu._compute(list_hyp_bleu, list_label_bleu)['bleu'] * 100
-    metrics["SacreBLEU"] = sacrebleu._compute(list_hyp, list_label_sacrebleu)['score']
+    if not is_train:
+        bs = bertscore.compute(
+                    predictions=list_hyp,
+                    references=list_label,
+                    verbose=True,
+                    device="cuda:0",
+                    lang="id",
+                    model_type="bert-base-multilingual-cased",
+                    num_layers=9
+                )
+        metrics["BERTSCORE"] = round(statistics.mean(bs["f1"]) * 100, 2)
+    else:
+        metrics["BERTSCORE"] = 0
+    metrics["IBLEU"] = 100 - bleu._compute(list_hyp_bleu, list_label_bleu)['bleu'] * 100
+    metrics["ISacreBLEU"] = 100 - sacrebleu._compute(list_hyp, list_label_sacrebleu)['score']
     
     rouge_score = rouge._compute(list_hyp,list_label)
     metrics["ROUGE1"] = rouge_score['rouge1'].mid.fmeasure * 100
